@@ -1,0 +1,111 @@
+import org.openqa.selenium.By;
+import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.WebElement;
+import org.openqa.selenium.chrome.ChromeDriver;
+import org.openqa.selenium.support.ui.WebDriverWait;
+import org.openqa.selenium.support.ui.ExpectedConditions;
+import java.time.Duration;
+import io.github.bonigarcia.wdm.WebDriverManager;
+import com.github.seleniumwire.SeleniumWireDriver;
+import com.github.seleniumwire.Request;
+import com.github.seleniumwire.Response;
+
+public class LoginTest {
+    public static void main(String[] args) {
+        // Chemin vers le driver Chrome
+        WebDriverManager.chromedriver().setup();
+
+        // Initialisation du WebDriver avec Selenium Wire
+        WebDriver driver = new SeleniumWireDriver();
+
+        try {
+
+            /* User enters the app "newspaper" flow */
+            String baseUrl = "https://app.papernest.com/onboarding?anonymous&anonymousId=test&id_text=1&destination=newspaper";
+
+            // Ouvrir la page de démarrage
+            driver.get(baseUrl);
+
+            /* A new page appears with a pop-in asking to start the flow >>> click on "Commencer" */
+            WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(10));
+            WebElement popInStart = wait.until(ExpectedConditions.elementToBeClickable(By.id("Commencer")));
+            popInStart.click();
+
+            /* Page 1: Complete the arrival date field */
+            WebElement daySelector = wait.until(ExpectedConditions.elementToBeClickable(By.xpath("//td[@data-day='15']")));
+            daySelector.click();
+
+            WebElement monthSelector = wait.until(ExpectedConditions.elementToBeClickable(By.xpath("//select[@class='month-select']/option[@value='11']")));
+            monthSelector.click();
+
+            WebElement yearSelector = wait.until(ExpectedConditions.elementToBeClickable(By.xpath("//select[@class='year-select']/option[@value='2024']")));
+            yearSelector.click();
+
+            /* Page 2: Enter old and new addresses */
+            WebElement oldAddress = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("oldAddress")));
+            oldAddress.sendKeys("52 avenue Charles de Gaulle, Roissy");
+
+            WebElement newAddress = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("newAddress")));
+            newAddress.sendKeys("456 Nouvelle Rue, VilleTest");
+
+            /* Page 3: Offer page / "La Poste" offers are displayed */
+            WebElement laPosteOffer = wait.until(ExpectedConditions.visibilityOfElementLocated(By.xpath("//div[contains(text(),'La Poste')]")));
+            if (laPosteOffer.isDisplayed()) {
+                System.out.println("L'offre La Poste est affichée.");
+            } else {
+                System.out.println("L'offre La Poste n'est pas affichée.");
+            }
+
+            /* Page 4: Clients infos page */
+            WebElement emailField = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("Email")));
+            emailField.sendKeys("Yanistest@papernest.com");
+
+            // Vérification de l'API via Selenium Wire
+            boolean apiCallVerified = false;
+            for (Request request : ((SeleniumWireDriver) driver).getAllRequests()) {
+                if (request.getMethod().equals("POST") && request.getUrl().contains("/api/utils/email/")) {
+                    Response response = request.getResponse();
+                    if (response != null && response.getStatusCode() == 200 && response.getBodyAsString().contains("\"response\": false")) {
+                        apiCallVerified = true;
+                        break;
+                    }
+                }
+            }
+
+            if (apiCallVerified) {
+                System.out.println("L'appel API a retourné un code 200 avec la réponse attendue.");
+            } else {
+                System.out.println("L'appel API n'a pas retourné la réponse attendue.");
+            }
+
+            /* Page 5: Select "Je reçois le code par mail", then click on "Suivant" */
+            WebElement boutonCode = wait.until(ExpectedConditions.elementToBeClickable(By.id("CodeParMail")));
+            boutonCode.click();
+
+            /* Page 6: Summary of Client informations */
+            WebElement summaryInfo = wait.until(ExpectedConditions.visibilityOfElementLocated(By.xpath("//div[contains(text(),'Nom')]")));
+            if (summaryInfo.isDisplayed()) {
+                System.out.println("Le résumé des informations client est affiché.");
+            } else {
+                System.out.println("Le résumé des informations client n'est pas affiché.");
+            }
+
+            /* Page 7: Final page (payment) */
+            WebElement cardNumber = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("Numéro de carte")));
+            cardNumber.sendKeys("4241 0102 3638 5458");
+
+            WebElement expiration = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("Expiration")));
+            expiration.sendKeys("09/2028");
+
+            WebElement securityCode = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("Code de sécurité")));
+            securityCode.sendKeys("123");
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            // Fermer le navigateur
+            driver.quit();
+        }
+    }
+}
+
